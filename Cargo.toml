@@ -1,0 +1,13 @@
+[package]
+name = "di"
+version = "0.1.0"
+authors = ["cosmotherly <acheronfail@gmail.com>"]
+
+[dependencies]
+failure = "0.1"
+ignore = "0.4"
+pretty-bytes = "0.2"
+num_cpus = "1.0"
+separator = "0.3.1"
+clap = "2"
+structopt = "0.2"
