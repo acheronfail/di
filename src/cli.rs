@@ -2,7 +2,7 @@ use clap;
 use std::path::PathBuf;
 
 /// A tool to see where disk space is used
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, Clone)]
 #[structopt(
     name = "di",
     after_help = "https://github.com/acheronfail/di",
@@ -17,6 +17,10 @@ pub struct Opt {
     /// Set number threads (defaults to number of CPUs)
     #[structopt(short = "t", long = "threads")]
     pub threads: Option<usize>,
+
+    /// Keep track of `n` largest files
+    #[structopt(short = "n", long = "number-of-files")]
+    pub n_files: Option<usize>,
 
     /// The directory to scan (defaults to current folder)
     #[structopt(name = "DIR", parse(from_os_str))]

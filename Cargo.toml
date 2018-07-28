@@ -1,7 +1,8 @@
 [package]
 name = "di"
 version = "0.1.0"
-authors = ["cosmotherly <acheronfail@gmail.com>"]
+authors = ["Callum Oz <acheronfail@gmail.com>"]
+description = "A small cli tool to show disk usage information"
 
 [dependencies]
 failure = "0.1"
