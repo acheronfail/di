@@ -19,8 +19,8 @@ pub struct Opt {
     pub threads: Option<usize>,
 
     /// Keep track of `n` largest files
-    #[structopt(short = "n", long = "number-of-files")]
-    pub n_files: Option<usize>,
+    #[structopt(short = "n", long = "number-of-files", default_value = "5")]
+    pub n_files: usize,
 
     /// The directory to scan (defaults to current folder)
     #[structopt(name = "DIR", parse(from_os_str))]

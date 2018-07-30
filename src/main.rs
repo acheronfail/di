@@ -1,6 +1,5 @@
-// TODO: calculate and show largest directories (like windirstat, etc)
-// TODO: display percentages as a part of results
-
+/// IDEA: use ncurses and save directory information to browse down fs and see where disk space is usedd
+/// IDEA: display file sizes as percentages of total space used
 extern crate clap;
 extern crate failure;
 extern crate ignore;

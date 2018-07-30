@@ -3,6 +3,7 @@ use ignore::{WalkBuilder, WalkState};
 use num_cpus;
 use pretty_bytes;
 use separator::Separatable;
+use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::io::{stdout, Write};
@@ -12,7 +13,7 @@ use std::thread;
 use std::time::Instant;
 
 use cli;
-use util::{FileInfo, LimitedFileHeap};
+use util::{Info, LimitedHeap};
 
 #[derive(Debug)]
 pub struct ScanResult {
@@ -26,18 +27,20 @@ pub struct ScanResult {
     pub bytes: u64,
 
     // TODO: return biggest files and biggest directories?
-    pub largest_files: LimitedFileHeap,
+    pub largest_dirs: LimitedHeap,
+    pub largest_files: LimitedHeap,
 }
 
 impl ScanResult {
-    pub fn new(root: PathBuf, n_files: Option<usize>) -> ScanResult {
+    pub fn new(root: PathBuf, n_files: usize) -> ScanResult {
         ScanResult {
             root,
             files: 0,
             directories: 0,
             symlinks: 0,
             bytes: 0,
-            largest_files: LimitedFileHeap::new(n_files.unwrap_or(5)),
+            largest_dirs: LimitedHeap::new(n_files),
+            largest_files: LimitedHeap::new(n_files),
         }
     }
 }
@@ -56,6 +59,9 @@ Scan statistics:
     total entries {total}
     total size    {size} ({bytes} bytes)
 
+Largest directories found:
+{largest_dirs}
+
 Largest files found:
 {largest_files}
 ",
@@ -65,6 +71,7 @@ Largest files found:
             symlinks = self.symlinks.separated_string(),
             size = pretty_bytes::converter::convert(self.bytes as f64),
             bytes = self.bytes.separated_string(),
+            largest_dirs = self.largest_dirs,
             largest_files = self.largest_files,
             total = (self.files + self.directories + self.symlinks).separated_string()
         )
@@ -92,15 +99,22 @@ pub fn scan_dir(opt: &cli::Opt) -> Result<ScanResult, Error> {
     let rx_opt = opt.clone();
     let (tx, rx) = channel::<(PathBuf, fs::Metadata)>();
     let rx_thread = thread::spawn(move || {
+        let mut dir_map = HashMap::<String, u64>::new();
         let mut scan_result = ScanResult::new(root_dir, rx_opt.n_files);
         let mut last_print = Instant::now();
-        for (i, (path, metadata)) in rx.into_iter().enumerate() {
+        for (i, (mut path, metadata)) in rx.into_iter().enumerate() {
             if metadata.is_file() {
                 scan_result.files += 1;
 
                 let bytes = metadata.len();
                 scan_result.bytes += bytes;
-                scan_result.largest_files.push(FileInfo(bytes, path));
+                scan_result.largest_files.push(Info(bytes, path.clone()));
+
+                if let Some(parent) = path.parent() {
+                    let key = format!("{}", parent.display());
+                    let value = dir_map.entry(key).or_insert(0);
+                    *value += bytes;
+                }
             } else if metadata.is_dir() {
                 scan_result.directories += 1;
             } else {
@@ -114,6 +128,12 @@ pub fn scan_dir(opt: &cli::Opt) -> Result<ScanResult, Error> {
             }
         }
         print!("\r");
+
+        for (path_str, bytes) in dir_map {
+            scan_result
+                .largest_dirs
+                .push(Info(bytes, PathBuf::from(path_str)));
+        }
 
         scan_result
     });
