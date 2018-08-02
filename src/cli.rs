@@ -18,11 +18,11 @@ pub struct Opt {
     #[structopt(short = "t", long = "threads")]
     pub threads: Option<usize>,
 
-    /// Keep track of `n` largest files
-    #[structopt(short = "n", long = "number-of-files", default_value = "5")]
-    pub n_files: usize,
+    /// Keep track of `n` largest files and directories
+    #[structopt(short = "n", long = "number-of-items", default_value = "5")]
+    pub n_items: usize,
 
     /// The directory to scan (defaults to current folder)
-    #[structopt(name = "DIR", parse(from_os_str))]
-    pub root: Option<PathBuf>,
+    #[structopt(name = "DIR", default_value = ".", parse(from_os_str))]
+    pub root: PathBuf,
 }

@@ -1,5 +1,6 @@
-/// IDEA: use ncurses and save directory information to browse down fs and see where disk space is usedd
+/// IDEA: use ncurses and save directory information to browse down fs and see where disk space is used
 /// IDEA: display file sizes as percentages of total space used
+extern crate ansi_term;
 extern crate clap;
 extern crate failure;
 extern crate ignore;
@@ -18,7 +19,7 @@ use structopt::StructOpt;
 fn main() {
     let opt = cli::Opt::from_args();
     match scan::scan_dir(&opt) {
-        Ok(scan_result) => println!("\n{}", scan_result),
+        Ok(scan_result) => println!("{}", scan_result),
         Err(e) => panic!(e),
     }
 }

@@ -1,16 +1,15 @@
+use ansi_term::{ANSIStrings, Colour, Style};
 use failure::Error;
 use ignore::{WalkBuilder, WalkState};
 use num_cpus;
 use pretty_bytes;
 use separator::Separatable;
 use std::collections::HashMap;
-use std::fmt;
-use std::fs;
 use std::io::{stdout, Write};
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
-use std::thread;
 use std::time::Instant;
+use std::{fmt, fs, thread};
 
 use cli;
 use util::{Info, LimitedHeap};
@@ -26,7 +25,6 @@ pub struct ScanResult {
     // Total size of files in bytes.
     pub bytes: u64,
 
-    // TODO: return biggest files and biggest directories?
     pub largest_dirs: LimitedHeap,
     pub largest_files: LimitedHeap,
 }
@@ -47,40 +45,77 @@ impl ScanResult {
 
 impl fmt::Display for ScanResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let grey = Colour::Fixed(244);
+        let green = Colour::Green;
+        let yellow = Colour::Yellow;
+        let underline = Style::new().underline();
+
         write!(
             f,
-            "
-di {root}
+            "{} {}\n\n",
+            underline.fg(Colour::Cyan).paint(env!("CARGO_PKG_NAME")),
+            grey.paint(self.root.display().to_string())
+        )?;
+        write!(f, "{}\n", underline.paint("Scan statistics:"))?;
+        write!(
+            f,
+            " {}\n",
+            ANSIStrings(&[
+                grey.paint("directories   "),
+                green.paint(self.directories.separated_string())
+            ])
+        )?;
+        write!(
+            f,
+            " {}\n",
+            ANSIStrings(&[
+                grey.paint("symlinks      "),
+                green.paint(self.symlinks.separated_string())
+            ])
+        )?;
+        write!(
+            f,
+            " {}\n",
+            ANSIStrings(&[
+                grey.paint("files         "),
+                green.paint(self.files.separated_string())
+            ])
+        )?;
+        write!(
+            f,
+            " {}\n",
+            ANSIStrings(&[
+                grey.paint("total entries "),
+                green.paint((self.files + self.directories + self.symlinks).separated_string())
+            ])
+        )?;
+        write!(
+            f,
+            " {}\n",
+            ANSIStrings(&[
+                grey.paint("total size    "),
+                yellow.paint(pretty_bytes::converter::convert(self.bytes as f64)),
+                grey.paint(" ("),
+                yellow.paint(self.bytes.separated_string()),
+                grey.paint(" bytes)")
+            ])
+        )?;
+        write!(
+            f,
+            "\n{}\n{}\n\n{}\n{}",
+            underline.paint("Largest directories found:"),
+            underline.paint("Largest files found:"),
+            self.largest_dirs,
+            self.largest_files
+        )?;
 
-Scan statistics:
-    directories   {dirs}
-    symlinks      {symlinks}
-    files         {files}
-    total entries {total}
-    total size    {size} ({bytes} bytes)
-
-Largest directories found:
-{largest_dirs}
-
-Largest files found:
-{largest_files}
-",
-            root = self.root.display(),
-            files = self.files.separated_string(),
-            dirs = self.directories.separated_string(),
-            symlinks = self.symlinks.separated_string(),
-            size = pretty_bytes::converter::convert(self.bytes as f64),
-            bytes = self.bytes.separated_string(),
-            largest_dirs = self.largest_dirs,
-            largest_files = self.largest_files,
-            total = (self.files + self.directories + self.symlinks).separated_string()
-        )
+        Ok(())
     }
 }
 
 pub fn scan_dir(opt: &cli::Opt) -> Result<ScanResult, Error> {
     let n_threads = opt.threads.unwrap_or(num_cpus::get());
-    let root_dir = fs::canonicalize(opt.root.as_ref().unwrap_or(&PathBuf::from(".")))?;
+    let root_dir = fs::canonicalize(&opt.root)?;
 
     if opt.verbosity > 0 {
         println!("scanning directory: {}", root_dir.display());
@@ -100,7 +135,7 @@ pub fn scan_dir(opt: &cli::Opt) -> Result<ScanResult, Error> {
     let (tx, rx) = channel::<(PathBuf, fs::Metadata)>();
     let rx_thread = thread::spawn(move || {
         let mut dir_map = HashMap::<String, u64>::new();
-        let mut scan_result = ScanResult::new(root_dir, rx_opt.n_files);
+        let mut scan_result = ScanResult::new(root_dir, rx_opt.n_items);
         let mut last_print = Instant::now();
         for (i, (mut path, metadata)) in rx.into_iter().enumerate() {
             if metadata.is_file() {
@@ -129,6 +164,8 @@ pub fn scan_dir(opt: &cli::Opt) -> Result<ScanResult, Error> {
         }
         print!("\r");
 
+        // TODO: rather than just finding the largest directories, use this data
+        // in a more useful way?
         for (path_str, bytes) in dir_map {
             scan_result
                 .largest_dirs

@@ -1,3 +1,4 @@
+use ansi_term::Colour;
 use pretty_bytes;
 use std::cmp::{max, Ordering};
 use std::collections::BinaryHeap;
@@ -6,13 +7,6 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct Info(pub u64, pub PathBuf);
-
-impl Display for Info {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let size = pretty_bytes::converter::convert(self.0 as f64);
-        write!(f, "{size} {path}", size = size, path = self.1.display())
-    }
-}
 
 // Implement `Eq`, `PartialEq`, `PartialOrd` and `Ord` for `Info` so we can
 // turn the standard BinaryHeap into a min-heap.
@@ -49,17 +43,12 @@ pub struct LimitedHeap {
     heap: BinaryHeap<Info>,
 }
 
-#[allow(dead_code)]
 impl LimitedHeap {
     pub fn new(limit: usize) -> LimitedHeap {
         LimitedHeap {
             limit,
             heap: BinaryHeap::new(),
         }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.heap.is_empty()
     }
 
     pub fn len(&self) -> usize {
@@ -75,23 +64,20 @@ impl LimitedHeap {
     }
 
     pub fn push(&mut self, info: Info) {
-        // if let Some(smallest) = self.peek() {
-        //     if smallest.0 < info.0 {
-        //         let _ = self.pop();
-        //         self.heap.push(info);
-        //     }
-        // }
-
-        self.heap.push(info);
-
-        if self.heap.len() > self.limit {
-            let _ = self.heap.pop();
+        let len = self.len();
+        if len > 0 && len == self.limit {
+            if self.peek().unwrap().0 < info.0 {
+                let _ = self.pop();
+                self.heap.push(info);
+            }
+        } else {
+            self.heap.push(info);
         }
     }
 }
 
-// Displaying a `LimitedHeap` will print a list of each file and its size
-// in descending size order.
+// Displaying a `LimitedHeap` will print a list of each file and its size in
+// descending order.
 impl Display for LimitedHeap {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut items = vec![];
@@ -105,7 +91,11 @@ impl Display for LimitedHeap {
 
         let items = items
             .into_iter()
-            .map(move |(size, path)| format!("{:<w$} {}", size, path.display(), w = max_width))
+            .map(move |(size, path)| {
+                let path_str = Colour::Fixed(244).paint(format!("{}", path.display()));
+                let size_str = format!("{:>w$}", size, w = max_width);
+                format!(" {}  {}", Colour::Yellow.paint(size_str), path_str)
+            })
             .collect::<Vec<String>>()
             .join("\n");
 
